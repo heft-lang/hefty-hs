@@ -1,0 +1,31 @@
+cabal-version:   3.0
+name:            hefty
+version:         0.1.0.0
+license:         NONE
+author:          jaro.reinders@gmail.com
+maintainer:      Jaro Reinders
+build-type:      Simple
+extra-doc-files: CHANGELOG.md
+category:        Effect
+synopsis:        A simple effect system with support for higher order effects.
+
+common warnings
+    ghc-options: -Wall
+
+library
+    import:           warnings
+    exposed-modules:  Hefty
+                    , Hefty.Free
+                    , Hefty.Elab
+                    , Hefty.Hefty
+                    , Hefty.Effects.Algebraic.Abort
+                    , Hefty.Effects.Algebraic.Error
+                    , Hefty.Effects.Algebraic.Reader
+                    , Hefty.Effects.Algebraic.State
+                    , Hefty.Effects.Algebraic.SubJump
+                    , Hefty.Effects.HigherOrder.Except
+                    , Hefty.Effects.HigherOrder.Lambda
+                    , Hefty.Effects.HigherOrder.Local
+    build-depends:    base ^>= { 4.16, 4.17 }, natural-transformation ^>= 0.4
+    hs-source-dirs:   src
+    default-language: GHC2021
