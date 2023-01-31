@@ -1,15 +1,13 @@
 module Hefty.Effects.Algebraic.Reader where
 
 import Hefty
+import Hefty.Algebraic
 
-data Reader r k = Reader (r -> k)
+newtype Reader r k = Reader (r -> k)
   deriving Functor
 
-reader :: Reader r < f => Free f r
-reader = Do $ inj $ Reader Pure
-
-readerH :: Lift (Reader r) << h => Hefty h r
-readerH = liftH Reader
+reader :: (Algebraic eff, In eff (Reader r) h) => eff h r
+reader = lift Reader
 
 
 ---------------

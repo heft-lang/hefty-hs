@@ -1,21 +1,16 @@
 module Hefty.Effects.Algebraic.State where
 
 import Hefty
+import Hefty.Algebraic
 
 data State s k = Put s k | Get (s -> k)
   deriving Functor
 
-put :: State s < f => s -> Free f ()
-put s = Do $ inj $ Put s $ Pure ()
+put :: (Algebraic eff, In eff (State s) h) => s -> eff h ()
+put s = lift $ \k -> Put s (k ())
 
-get :: State s < f => Free f s
-get = Do $ inj $ Get Pure
-
-putH :: Lift (State s) << h => s -> Hefty h ()
-putH s = liftH0 $ Put s
-
-getH :: Lift (State s) << h => Hefty h s
-getH = liftH Get
+get :: (Algebraic eff, In eff (State s) h) => eff h s
+get = lift Get
 
 hState :: Functor f'
        => Handler_ (State s) a s f' (s, a)

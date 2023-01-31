@@ -1,6 +1,7 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-} -- needed for 'type Effect' in GHC 9.2.5
+{-# LANGUAGE ExplicitNamespaces #-}
 
 module Hefty.Hefty where
 
@@ -8,6 +9,7 @@ import Control.Monad
 import Data.Kind (Type)
 import Control.Category (Category (..))
 import Prelude hiding ((.), id)
+import Control.Natural ( type (~>) )
 
 type Effect = (Type -> Type) -> (Type -> Type)
 
@@ -39,7 +41,7 @@ sumH_ _ g (RH x) = g x
 
 -- hfunctor subsumption
 
-newtype (:~~>) h1 h2 = NTH { ($$$) :: forall f a. h1 f a -> h2 f a }
+newtype (:~~>) h1 h2 = NTH { ($$$) :: forall f. h1 f ~> h2 f }
 
 instance Category (:~~>) where
   id = NTH id

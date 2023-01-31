@@ -3,6 +3,7 @@
 module Hefty.Effects.Algebraic.SubJump where
 
 import Hefty
+import Hefty.Algebraic
 
 data SubJump ref k
   = forall t. Sub (Either (ref t) t -> k)
@@ -10,17 +11,17 @@ data SubJump ref k
 
 deriving instance forall ref. Functor (SubJump ref)
 
-sub :: SubJump ref < f
-    => (ref t -> Free f a)
-    -> (t -> Free f a)
-    -> Free f a
-sub sc k = Do $ inj $ Sub \case
+sub :: (Algebraic eff, In eff (SubJump ref) f)
+    => (ref t -> eff f a)
+    -> (t -> eff f a)
+    -> eff f a
+sub sc k = lift $ const $ Sub \case
   Left  r -> sc r
   Right x -> k x
 
-jump :: SubJump ref < f
-     => ref t -> t -> Free f a
-jump r x = Do $ inj $ Jump r x
+jump :: (Algebraic eff, In eff (SubJump ref) f)
+     => ref t -> t -> eff f a
+jump r x = lift $ const $ Jump r x
 
 newtype Cont f b a = Cont { cont :: a -> Free f b }
 

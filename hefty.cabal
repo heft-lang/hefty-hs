@@ -18,6 +18,7 @@ library
                     , Hefty.Free
                     , Hefty.Elab
                     , Hefty.Hefty
+                    , Hefty.Algebraic
                     , Hefty.Effects.Algebraic.Abort
                     , Hefty.Effects.Algebraic.Error
                     , Hefty.Effects.Algebraic.Reader
@@ -26,6 +27,7 @@ library
                     , Hefty.Effects.HigherOrder.Except
                     , Hefty.Effects.HigherOrder.Lambda
                     , Hefty.Effects.HigherOrder.Local
-    build-depends:    base ^>= { 4.16, 4.17 }, natural-transformation ^>= 0.4
+    build-depends:    base ^>= { 4.16, 4.17 }
+                    , natural-transformation ^>= 0.4
     hs-source-dirs:   src
     default-language: GHC2021

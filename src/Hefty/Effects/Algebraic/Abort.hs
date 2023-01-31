@@ -1,15 +1,13 @@
 module Hefty.Effects.Algebraic.Abort where
 
 import Hefty
+import Hefty.Algebraic
 
 data Abort k = Abort
   deriving Functor
 
-abort :: Abort < f => Free f a
-abort = Do $ inj Abort
-
-abortH :: Lift Abort << h => Hefty h a
-abortH = liftH $ const Abort
+abort :: (Algebraic eff, In eff Abort f) => eff f a
+abort = lift $ const Abort
 
 hAbort :: Functor f => Handler Abort a f (Maybe a)
 hAbort = Handler

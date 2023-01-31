@@ -2,16 +2,13 @@ module Hefty.Effects.Free.NonDet where
 
 
 import Hefty
+import Hefty.Algebraic
 
-data NonDet k = Or (Bool -> k)
+newtype NonDet k = Or (Bool -> k)
   deriving Functor
 
-or :: NonDet < f => Free f a -> Free f a -> Free f a
-or m1 m2 = Do $ inj $ Or $ \ b -> if b then m1 else m2
-
-orH :: ( HFunctor h
-       , Lift NonDet << h ) => Hefty h a -> Hefty h a -> Hefty h a
-orH m1 m2 = liftH $ \ r -> Or $ \ b -> if b then m1 >>= r else m2 >>= r
+or :: (Algebraic eff, In eff NonDet h, Monad (eff h)) => eff h a -> eff h a -> eff h a
+or m1 m2 = lift $ \ r -> Or $ \ b -> if b then m1 >>= r else m2 >>= r
 
 hNonDet :: Functor f
         => Handler NonDet a f [a]
