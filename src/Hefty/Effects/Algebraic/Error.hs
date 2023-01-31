@@ -6,7 +6,7 @@ import Hefty.Algebraic
 newtype Error e k = Error e
   deriving Functor
 
-err :: (Algebraic eff, In eff (Error e) f) => e -> eff f a
+err :: In eff (Error e) f => e -> eff f a
 err e = lift $ const $ Error e
 
 hErr :: Functor f

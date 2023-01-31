@@ -7,7 +7,7 @@ import Hefty.Algebraic
 newtype NonDet k = Or (Bool -> k)
   deriving Functor
 
-or :: (Algebraic eff, In eff NonDet h, Monad (eff h)) => eff h a -> eff h a -> eff h a
+or :: In eff NonDet h => eff h a -> eff h a -> eff h a
 or m1 m2 = lift $ \ r -> Or $ \ b -> if b then m1 >>= r else m2 >>= r
 
 hNonDet :: Functor f

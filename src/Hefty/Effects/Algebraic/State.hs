@@ -6,10 +6,10 @@ import Hefty.Algebraic
 data State s k = Put s k | Get (s -> k)
   deriving Functor
 
-put :: (Algebraic eff, In eff (State s) h) => s -> eff h ()
+put :: In eff (State s) h => s -> eff h ()
 put s = lift $ \k -> Put s (k ())
 
-get :: (Algebraic eff, In eff (State s) h) => eff h s
+get :: In eff (State s) h => eff h s
 get = lift Get
 
 hState :: Functor f'

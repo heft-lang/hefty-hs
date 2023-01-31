@@ -6,7 +6,7 @@ import Hefty.Algebraic
 newtype Reader r k = Reader (r -> k)
   deriving Functor
 
-reader :: (Algebraic eff, In eff (Reader r) h) => eff h r
+reader :: In eff (Reader r) h => eff h r
 reader = lift Reader
 
 

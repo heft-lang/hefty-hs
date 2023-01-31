@@ -11,7 +11,7 @@ data SubJump ref k
 
 deriving instance forall ref. Functor (SubJump ref)
 
-sub :: (Algebraic eff, In eff (SubJump ref) f)
+sub :: In eff (SubJump ref) f
     => (ref t -> eff f a)
     -> (t -> eff f a)
     -> eff f a
@@ -19,7 +19,7 @@ sub sc k = lift $ const $ Sub \case
   Left  r -> sc r
   Right x -> k x
 
-jump :: (Algebraic eff, In eff (SubJump ref) f)
+jump :: In eff (SubJump ref) f
      => ref t -> t -> eff f a
 jump r x = lift $ const $ Jump r x
 
