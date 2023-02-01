@@ -97,4 +97,3 @@ eLambdaCBN' = Alg $ \case
     let (t, st') = insert arg st
     put st'
     app fun t >>= k
-
