@@ -1,18 +1,20 @@
+{-# LANGUAGE BlockArguments #-}
 module Hefty.Effects.Algebraic.Abort where
 
 import Hefty
 import Hefty.Algebraic
 
-data Abort k = Abort
-  deriving Functor
+data Abort a where
+  Abort :: Abort a
 
 abort :: In eff Abort f => eff f a
-abort = lift $ const Abort
+abort = lift Abort
 
-hAbort :: Functor f => Handler Abort a f (Maybe a)
+hAbort :: Handler Abort a f (Maybe a)
 hAbort = Handler
   (return . Just)
-  (\ _ -> return Nothing)
+  \ op _ -> case op of
+    Abort -> return Nothing
 
-runAbort :: Functor f => Free (Abort + f) a -> Free f (Maybe a)
+runAbort :: Freer (Abort + f) a -> Freer f (Maybe a)
 runAbort = handle hAbort

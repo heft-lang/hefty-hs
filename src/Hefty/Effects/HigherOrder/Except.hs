@@ -33,5 +33,4 @@ eExcept = Alg $ \case
     case v of
       Just x -> k x
       Nothing -> m2 >>= k
-  Throw -> Do $ inj Abort
-
+  Throw -> abort

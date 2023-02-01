@@ -1,23 +1,23 @@
+{-# LANGUAGE GADTs #-}
 module Hefty.Effects.Algebraic.Reader where
 
 import Hefty
 import Hefty.Algebraic
 
-newtype Reader r k = Reader (r -> k)
-  deriving Functor
+data Reader r a where
+  Ask :: Reader r r
 
 reader :: In eff (Reader r) h => eff h r
-reader = lift Reader
+reader = lift Ask
 
 
 ---------------
 --- HANDLER ---
 ---------------
 
-hReader :: Functor f
-        => Handler_ (Reader r) a r f a
+hReader :: Handler_ (Reader r) a r f a
 hReader = Handler_ {
     ret_ = \ x _ -> return x
-  , hdl_ = \ f r -> case f of
-      Reader k -> k r r
+  , hdl_ = \ op k r -> case op of
+      Ask -> k r r
   }

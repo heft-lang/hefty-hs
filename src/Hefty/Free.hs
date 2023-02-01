@@ -2,20 +2,20 @@
 {-# LANGUAGE LambdaCase #-}
 module Hefty.Free where
 
-import Control.Monad ( ap, liftM )
+import Control.Monad ( ap, liftM, (>=>) )
 import Control.Natural
 import Control.Category
 import Prelude hiding ((.), id)
 
-data Free f a
+data Freer f a
   = Pure a
-  | Do (f (Free f a))
+  | forall c. Do (f c) (c -> Freer f a)
 
-instance Functor f => Applicative (Free f) where pure = Pure; (<*>) = ap
-instance Functor f => Functor (Free f) where fmap = liftM
-instance Functor f => Monad (Free f) where
+instance Applicative (Freer f) where pure = Pure; (<*>) = ap
+instance Functor (Freer f) where fmap = liftM
+instance Monad (Freer f) where
   Pure x >>= k = k x
-  Do f >>= k = Do (fmap (k =<<) f)
+  Do op k1 >>= k2 = Do op (k1 >=> k2)
 
 
 -- functor sum
@@ -108,121 +108,103 @@ deriving instance Show a => Show (Id a)
 data Nop k
   deriving Functor
 
-un :: Free Nop a -> a
+un :: Freer Nop a -> a
 un (Pure x) = x
-un (Do f) = case f of
+un (Do op _) = case op of
 
 
 -- folding trees, paramorphically
 
-parafold :: Functor f
-         => (a -> b)
-         -> (f (Free f a, b) -> b)
-         -> Free f a
+parafold :: (a -> b)
+         -> (forall c. f c -> (c -> (Freer f a, b)) -> b)
+         -> Freer f a
          -> b
 parafold gen _   (Pure a) = gen a
-parafold gen alg (Do f) = alg (fmap (\ x -> (x, parafold gen alg x)) f)
+parafold gen alg (Do op k) = alg op (\c -> let k' = k c in (k', parafold gen alg k'))
 
 -- folding trees, catamorphically
 
-fold :: Functor f
-     => (a -> b)
-     -> (f b -> b)
-     -> Free f a
+fold :: (a -> b)
+     -> (forall c. f c -> (c -> b) -> b)
+     -> Freer f a
      -> b
-fold gen alg = parafold gen (alg . fmap snd)
+fold gen alg = parafold gen (\op k -> alg op $ fmap snd k)
 
 
 -- simple handler
 
 data Handler f a f' b
-  = Handler { ret :: a -> Free f' b
-            , hdl :: f (Free f' b) -> Free f' b }
+  = Handler { ret :: a -> Freer f' b
+            , hdl :: forall c. f c -> (c -> Freer f' b) -> Freer f' b }
 
-handle :: ( Functor f
-          , Functor f' )
-       => Handler f a f' b
-       -> Free (f + f') a
-       -> Free f' b
+handle :: Handler f a f' b
+       -> Freer (f + f') a
+       -> Freer f' b
 handle h = fold (ret h) (sum_ (hdl h) Do)
 
 
 -- parameterized handler
 
 data Handler_ f a p f' b
-  = Handler_ { ret_ :: a -> p -> Free f' b
-             , hdl_ :: f (p -> Free f' b) -> p -> Free f' b }
+  = Handler_ { ret_ :: a -> p -> Freer f' b
+             , hdl_ :: forall c. f c -> (c -> p -> Freer f' b) -> p -> Freer f' b }
 
-handle_ :: ( Functor f
-           , Functor f' )
-        => Handler_ f a p f' b
-        -> Free (f + f') a
+handle_ :: Handler_ f a p f' b
+        -> Freer (f + f') a
         -> p
-        -> Free f' b
+        -> Freer f' b
 handle_ h = fold (ret_ h)
-                 (sum_ (hdl_ h) (\ x p -> Do $ app p <$> x))
-  where app p f = f p
+                 (sum_ (hdl_ h) (\ op k p -> Do op (\c -> k c p)))
 
 
 -- paramorphic simple handler
 
 data ParaHandler f f' g a
-  = ParaHandler { pararet :: a -> Free f' (g a)
-                , parahdl :: f ( Free (f + f') a
-                               , Free f' (g a) ) -> Free f' (g a) }
+  = ParaHandler { pararet :: a -> Freer f' (g a)
+                , parahdl :: forall c. f c -> (c -> ( Freer (f + f') a
+                               , Freer f' (g a) )) -> Freer f' (g a) }
 
-parahandle :: ( Functor f
-              , Functor f' )
-           => ParaHandler f f' g a
-           -> Free (f + f') a
-           -> Free f' (g a)
-parahandle h = parafold (pararet h) (sum_ (parahdl h) (Do . fmap snd))
+parahandle :: ParaHandler f f' g a
+           -> Freer (f + f') a
+           -> Freer f' (g a)
+parahandle h = parafold (pararet h) (sum_ (parahdl h) (\op k -> Do op (fmap snd k)))
 
 
 -- paramorphic parameterized handler
 
 data ParaHandler_ f f' p g a
-  = ParaHandler_ { pararet_ :: a -> p -> Free f' (g a)
-                 , parahdl_ :: f ( Free (f + f') a
-                                 , p -> Free f' (g a)) -> p -> Free f' (g a) }
+  = ParaHandler_ { pararet_ :: a -> p -> Freer f' (g a)
+                 , parahdl_ :: forall c. f c -> (c -> (Freer (f + f') a
+                                 , p -> Freer f' (g a))) -> p -> Freer f' (g a) }
 
 parahandle_
-  :: ( Functor f
-     , Functor f' )
-     => ParaHandler_ f f' p g a
-     -> Free (f + f') a
-     -> p
-     -> Free f' (g a)
+  :: ParaHandler_ f f' p g a
+  -> Freer (f + f') a
+  -> p
+  -> Freer f' (g a)
 parahandle_ h = parafold (pararet_ h)
-                         (sum_ (parahdl_ h) (\ x p -> Do $ fmap (app p . snd) x))
-  where app p f = f p
+                         (sum_ (parahdl_ h) (\op k p -> Do op (\c -> snd (k c) p)))
 
 
 -- convert a tree using a natural transformation
 
-convert :: ( Functor f
-           , Functor g )
-        => (f :~> g)
-        -> Free f a -> Free g a
+convert :: (f :~> g)
+        -> Freer f a -> Freer g a
 convert g = fold return (Do . ($$) g)
 
 
 -- effect masking
 
-mask :: ( Functor f
-        , Functor g )
-     => Free g a -> Free (f + g) a
+mask :: Freer g a -> Freer (f + g) a
 mask = fold return (Do . R)
 
 
 -- apply a handler and mask that the effect was handled
 
 hup :: forall f g m a.
-       ( Functor f
-       , Functor g
-       , f < g )
-    => (forall h. Functor h => Free (f + h) a -> Free h (m a))
-    -> Free g a -> Free g (m a)
+       ( f < g )
+    => (forall h. Functor h => Freer (f + h) a -> Freer h (m a))
+    -> Freer g a -> Freer g (m a)
 hup h = case witness @f @g of
   Forephism iso -> convert (from iso) . mask . h . convert (to iso)
 
@@ -230,9 +212,9 @@ hup h = case witness @f @g of
 -- apply an identity function modulo an insertion witness
 
 hid :: forall f g a.
-       ( Functor f, Functor g, f < g )
-    => (forall h. Functor h => Free (f + h) a -> Free (f + h) a)
-    -> Free g a -> Free g a
+       ( f < g )
+    => (forall h. Functor h => Freer (f + h) a -> Freer (f + h) a)
+    -> Freer g a -> Freer g a
 hid h = case witness @f @g of
   Forephism iso -> convert (from iso) . h . convert (to iso)
 

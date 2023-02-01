@@ -36,7 +36,7 @@ apply fun arg = Op $ injH $ Apply fun arg Return
 
 -- call-by-value interpretation
 
-newtype Fun f t1 t2 = Fun { app :: t1 -> Free f t2 }
+newtype Fun f t1 t2 = Fun { app :: t1 -> Freer f t2 }
 
 eLambdaCBV :: forall f.
               Functor f
@@ -53,7 +53,7 @@ eLambdaCBV = Alg $ \case
 
 eLambdaCBN :: forall f.
               Functor f
-           => Elab (Lambda (Free f) (Fun f)) f
+           => Elab (Lambda (Freer f) (Fun f)) f
 eLambdaCBN = Alg $ \case
   Lambda body   k -> k (Fun body)
   Var x         k -> x >>= k
@@ -62,7 +62,7 @@ eLambdaCBN = Alg $ \case
 
 -- call-by-need interpretation
 
-newtype Thunk f a = Thunk { force :: (Int, Free f a) }
+newtype Thunk f a = Thunk { force :: (Int, Freer f a) }
 
 data Pack = forall v. Pack (Maybe v)
 
@@ -72,7 +72,7 @@ update (Thunk (0, _)) v (_:p) = Pack (Just v) : p
 update (Thunk (i, m)) v (t:p) | i > 0 = t:update (Thunk (i-1,m)) v p
                               | otherwise = undefined
 
-insert :: Free f v -> [Pack] -> (Thunk f v, [Pack])
+insert :: Freer f v -> [Pack] -> (Thunk f v, [Pack])
 insert m p = (Thunk (length p, m), p ++ [Pack Nothing])
 
 eLambdaCBN' :: forall f.
