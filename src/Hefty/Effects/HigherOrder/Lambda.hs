@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE GADTs #-}
 module Hefty.Effects.HigherOrder.Lambda where
 
 import Hefty
@@ -7,31 +8,29 @@ import Unsafe.Coerce
 
 import Hefty.Effects.Algebraic.State
 
-data Lambda c fun f k
-  = forall t1 t2. Lambda (c t1 -> f t2)        (fun (c t1) t2 -> k)
-  | forall t.     Var   (c t)                  (t             -> k)
-  | forall t1 t2. Apply (fun (c t1) t2) (f t1) (t2            -> k)
-
-deriving instance forall c fun f. Functor (Lambda c fun f)
+data Lambda c fun m a where
+  Lambda :: (c t1 -> m t2) -> Lambda c fun m (fun (c t1) t2)
+  Var :: c t -> Lambda c fun m t
+  Apply :: fun (c t1) t2 -> m t1 -> Lambda c fun m t2
 
 instance HFunctor (Lambda c fun) where
-  hmap f (Lambda body   k) = Lambda (f . body) k
-  hmap _ (Var x         k) = Var x k
-  hmap f (Apply fun arg k) = Apply fun (f arg) k
+  hmap f (Lambda body) = Lambda (f . body)
+  hmap _ (Var x) = Var x
+  hmap f (Apply fun arg) = Apply fun (f arg)
 
 lambda :: forall fun c h t1 t2.
           Lambda c fun << h
        => (c t1 -> Hefty h t2)
        -> Hefty h (fun (c t1) t2)
-lambda body = Op $ injH $ Lambda body Return
+lambda body = Op (injH $ Lambda body) Return
 
 var :: forall fun c h t. Lambda c fun << h => c t -> Hefty h t
-var x = Op $ injH @(Lambda c fun) $ Var x Return
+var x = Op (injH @(Lambda c fun) $ Var x) Return
 
 apply :: forall fun c h t1 t2.
          Lambda c fun << h
       => fun (c t1) t2 -> Hefty h t1 -> Hefty h t2
-apply fun arg = Op $ injH $ Apply fun arg Return
+apply fun arg = Op (injH $ Apply fun arg) Return
 
 
 -- call-by-value interpretation
@@ -41,10 +40,10 @@ newtype Fun f t1 t2 = Fun { app :: t1 -> Freer f t2 }
 eLambdaCBV :: forall f.
               Functor f
            => Elab (Lambda Id (Fun f)) f
-eLambdaCBV = Alg $ \case
-  Lambda body   k -> k (Fun body)
-  Var x         k -> k (unId x)
-  Apply fun arg k -> do
+eLambdaCBV = Alg $ \op k -> case op of
+  Lambda body -> k (Fun body)
+  Var x -> k (unId x)
+  Apply fun arg -> do
     v <- arg
     app fun (Id v) >>= k
            
@@ -54,10 +53,10 @@ eLambdaCBV = Alg $ \case
 eLambdaCBN :: forall f.
               Functor f
            => Elab (Lambda (Freer f) (Fun f)) f
-eLambdaCBN = Alg $ \case
-  Lambda body   k -> k (Fun body)
-  Var x         k -> x >>= k
-  Apply fun arg k -> app fun arg >>= k
+eLambdaCBN = Alg $ \op k -> case op of
+  Lambda body -> k (Fun body)
+  Var x -> x >>= k
+  Apply fun arg -> app fun arg >>= k
 
 
 -- call-by-need interpretation
@@ -79,9 +78,9 @@ eLambdaCBN' :: forall f.
                ( Functor f
                , State [Pack] < f )
             => Elab (Lambda (Thunk f) (Fun f)) f
-eLambdaCBN' = Alg $ \case
-  Lambda body   k -> k (Fun body)
-  Var x         k -> do
+eLambdaCBN' = Alg $ \op k -> case op of
+  Lambda body -> k (Fun body)
+  Var x -> do
     (st :: [Pack]) <- get
     let (i, m) = force x
     case st !! i of
@@ -92,7 +91,7 @@ eLambdaCBN' = Alg $ \case
         put (update x v' st')
         k v'
       Pack (Just v) -> k (unsafeCoerce v)
-  Apply fun arg k -> do
+  Apply fun arg -> do
     st <- get
     let (t, st') = insert arg st
     put st'

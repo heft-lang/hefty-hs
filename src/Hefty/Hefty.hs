@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-} -- needed for 'type Effect' in GHC 9.2.5
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE BlockArguments #-}
 
 module Hefty.Hefty where
 
@@ -16,17 +17,16 @@ type Effect = (Type -> Type) -> (Type -> Type)
 type Hefty :: Effect -> Type -> Type
 data Hefty h a
   = Return a
-  | Op (h (Hefty h) (Hefty h a))
+  | forall c. Op (h (Hefty h) c) (c -> Hefty h a)
 
-class (forall f. Functor (h f)) => HFunctor h where
+class HFunctor h where
   hmap :: (forall x. f x -> g x) -> h f a -> h g a
-
 
 instance HFunctor h => Applicative (Hefty h) where pure = Return; (<*>) = ap
 instance HFunctor h => Functor (Hefty h) where fmap = liftM
 instance HFunctor h => Monad (Hefty h) where
   Return x >>= k = k x
-  Op f     >>= k = Op (fmap (k =<<) f)
+  Op f k1  >>= k2 = Op f (k1 >=> k2)
 
 -- hfunctor sum
 
@@ -102,12 +102,12 @@ instance HFunctor NopH where
 
 unH :: Hefty NopH a -> a
 unH (Return x) = x
-unH (Op f) = case f of
+unH (Op f k) = case f of
 
 instance h << h where
   witnessH = ForephismH (NTH LH <~~> NTH (sumH_ id (\(x :: NopH f k) -> case x of)))
 
-instance HFunctor g => f << f ++ g where
+instance {-# OVERLAPPING #-} HFunctor g => f << f ++ g where
   witnessH :: HFunctor g => ForephismH f (f ++ g)
   witnessH = ForephismH isoReflH
 
@@ -121,7 +121,7 @@ instance (HFunctor h1, HFunctor h2) => HFunctor (h1 ++ h2) where
   hmap f (LH x) = LH $ hmap f x
   hmap f (RH x) = RH $ hmap f x
 
-newtype Alg h g = Alg { alg :: forall a. h g (g a) -> g a }
+newtype Alg h g = Alg { alg :: forall c a. h g c -> (c -> g a) -> g a }
 
 foldH :: forall g h a.
          HFunctor h
@@ -129,10 +129,14 @@ foldH :: forall g h a.
       -> Alg h g
       -> Hefty h a
       -> g a
-foldH gen _   (Return a) = gen a
-foldH gen a (Op f)   = alg a $ hmap (foldH gen a) (fmap (foldH gen a) f)
+foldH gen _ (Return a) = gen a
+foldH gen a (Op f k)   = alg a (hmap (foldH gen a) f) (foldH gen a . k)
 
+infixr ++~
 (++~) :: Alg h1 g -> Alg h2 g -> Alg (h1 ++ h2) g
-a1 ++~ a2 = Alg $ \case
+a1 ++~ a2 = Alg \case
   LH x -> alg a1 x
   RH x -> alg a2 x
+
+nopAlg :: h << g => Alg h (Hefty g)
+nopAlg = Alg (Op . injH)

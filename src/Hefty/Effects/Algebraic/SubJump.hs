@@ -29,6 +29,6 @@ newtype Cont f b a = Cont { cont :: a -> Freer f b }
 hSubJump :: Functor f
          => Freer (SubJump (Cont f a) + f) a
          -> Freer f a
-hSubJump = fmap (fmap unId) . handle $ Handler (pure . Id) \op k -> case op of
-  Sub -> k (Left $ Cont $ fmap unId <$> k . Right)
-  Jump r x -> Id <$> cont r x
+hSubJump = handle $ Handler pure \op k -> case op of
+  Sub -> k (Left $ Cont $ k . Right)
+  Jump r x -> cont r x

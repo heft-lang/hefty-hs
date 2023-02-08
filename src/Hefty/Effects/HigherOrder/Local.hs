@@ -5,13 +5,11 @@ import Hefty
 
 import Hefty.Effects.Algebraic.Reader
 
-data Local r f k
-  = forall a. Local (r -> r) (f a) (a -> k)
-
-deriving instance forall r f. Functor (Local r f)
+data Local r m a where
+  Local :: (r -> r) -> m a -> Local r m a
 
 instance HFunctor (Local r) where
-  hmap f (Local g m k) = Local g (f m) k
+  hmap f (Local g m) = Local g (f m)
 
 
 -------------------
@@ -22,8 +20,8 @@ eLocal :: forall r f.
           ( Functor f
           , Reader r < f )
        => Elab (Local r) f
-eLocal = Alg $ \case
-  Local g m k -> do
+eLocal = Alg $ \op k -> case op of
+  Local g m -> do
     (r :: r) <- reader
     v <- hup (flip (handle_ hReader) (g r) . fmap Id) m
     k (unId v)

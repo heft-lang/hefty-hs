@@ -11,15 +11,13 @@ elaborate :: (HFunctor h) => Elab h f -> Hefty h a -> Freer f a
 elaborate = foldH return
 
 type Lift :: (Type -> Type) -> (Type -> Type) -> Type -> Type
-data Lift f h k = forall c. Lift (f c) (c -> k)
+newtype Lift f m a = Lift (f a)
 
-deriving instance Functor (Lift f h)
-
-instance Functor f => HFunctor (Lift f) where
-  hmap _ (Lift op k) = Lift op k
+instance HFunctor (Lift f) where
+  hmap _ (Lift op) = Lift op
 
 eLift :: forall f g. f < g => Elab (Lift f) g
-eLift = Alg $ \case Lift op k -> Do (inj op) k
+eLift = Alg $ \case Lift op -> Do (inj op)
 
 liftH :: Lift f << h => f a -> Hefty h a
-liftH op = Op $ injH $ Lift op Return
+liftH op = Op (injH $ Lift op) Return
