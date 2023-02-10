@@ -94,8 +94,7 @@ projH x = case witnessH @h1 @h2 of
 
 -- sum instances
 
-data NopH f k
-  deriving Functor
+data NopH m a
 
 instance HFunctor NopH where
   hmap _ = \case
@@ -103,6 +102,9 @@ instance HFunctor NopH where
 unH :: Hefty NopH a -> a
 unH (Return x) = x
 unH (Op f k) = case f of
+
+nopAlg :: Alg NopH f
+nopAlg = Alg \case
 
 instance h << h where
   witnessH = ForephismH (NTH LH <~~> NTH (sumH_ id (\(x :: NopH f k) -> case x of)))
@@ -138,5 +140,8 @@ a1 ++~ a2 = Alg \case
   LH x -> alg a1 x
   RH x -> alg a2 x
 
-nopAlg :: h << g => Alg h (Hefty g)
-nopAlg = Alg (Op . injH)
+injAlg :: h << g => Alg h (Hefty g)
+injAlg = Alg (Op . injH)
+
+send :: f << h => f (Hefty h) a -> Hefty h a
+send op = Op (injH op) Return
